@@ -1,4 +1,4 @@
-name: Android APK
+name: Daily Spend APK
 on:
   push:
     branches: [main, 'codex/**']
@@ -28,16 +28,12 @@ jobs:
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Test, lint and build
-        run: bash ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug :spend:assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: health-app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+        run: bash ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: daily-spend-debug-apk
-          path: spend/build/outputs/apk/debug/spend-debug.apk
-      - name: Publish APKs to repository
+          path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish APK to repository
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         run: |
@@ -47,13 +43,12 @@ jobs:
             exit 0
           fi
           mkdir -p downloads
-          cp app/build/outputs/apk/debug/app-debug.apk downloads/health-app.apk
-          cp spend/build/outputs/apk/debug/spend-debug.apk downloads/daily-spend.apk
-          sha256sum downloads/health-app.apk downloads/daily-spend.apk > downloads/SHA256SUMS
+          cp app/build/outputs/apk/debug/app-debug.apk downloads/daily-spend.apk
+          sha256sum downloads/daily-spend.apk > downloads/SHA256SUMS
           printf '%s\n' "$GITHUB_SHA" > downloads/source-commit.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add downloads/health-app.apk downloads/daily-spend.apk downloads/SHA256SUMS downloads/source-commit.txt
+          git add downloads/daily-spend.apk downloads/SHA256SUMS downloads/source-commit.txt
           if git diff --cached --quiet; then
             exit 0
           fi

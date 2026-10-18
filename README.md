@@ -1,70 +1,25 @@
-# 日日有练 · Health App
+# 日账 · Daily Spend
 
-原生安卓离线个人训练助手。Android 8.0（API 26）及以上，Java 17，无第三方运行时依赖，无账号、无广告、无联网权限。
+轻量离线 Android 记账应用，由 cloudres97/health-app 的 spend 模块拆分。
 
-## 已实现
+## 构建与下载
 
-- **今天**：日期、训练周数、近一周训练标记、三餐与加餐打卡、饭后步行和工作活动打卡。
-- **训练**：每周三/五/日，A/B按训练日交替；第1周每动作1组，第2周起按计划组数。可手动选模板，每组记录重量/次数，显示此前完成组的参考值，组间60/90秒计时。
-- **动作指导**：5个器械动作的文字步骤和注意点；本版本没有真人视频或动作识别。
-- **饮食**：食堂选餐、手掌份量示意、酸奶水果选购、饮食调整规则。
-- **记录**：体重和腰围录入/编辑/删除、近30条体重曲线、近7天已录入体重均值、训练历史详情。
-- **提醒**：可选工作日起身提醒和训练日提醒，默认关闭；通知中可暂停起身提醒1小时。
-- **数据**：输入和打卡本地保存；通过安卓文件选择器导出JSON、导入计划或恢复备份。
+Java 17、Android SDK 35。运行 `bash ./gradlew testDebugUnitTest lintDebug assembleDebug`。
+APK：`app/build/outputs/apk/debug/app-debug.apk`。
+GitHub Actions 构建成功后提供 `daily-spend-debug-apk` Artifact；main 分支构建后更新 `downloads/daily-spend.apk`。
 
-内置计划是入门模板，不含使用者姓名、疾病或化验信息。饮食数值是试行参考，非自动计算的医疗或营养处方。可导入JSON更新，身体情况变化时应相应调整。
+保留包名 `com.cloudres.spend`，应用数据结构不变。升级覆盖安装还需要相同签名；不同仓库的默认 debug 签名可能不同，迁移仓库不保证可以直接覆盖旧 APK。
 
-## 安装 APK
+## 功能与当前限制
 
-**[直接下载最新版 APK](https://github.com/cloudres97/health-app/raw/refs/heads/main/downloads/health-app.apk)**
+今日支出、本月累计、渠道汇总、手动记账、通用 CSV 导入、本机存储。
+CSV 导入仍是原型：尚未验证微信/支付宝原始账单的编码、说明行、收支/退款和重复导入处理。核对原始账单后再使用统计；当前导入逻辑可能把收入或退款当作支出。备份导出按钮尚未完成文件写入。
 
-主分支构建成功后自动更新 `downloads/health-app.apk`，无需进入Actions或解压ZIP。手机GitHub应用可进入 `downloads` 文件夹，打开APK文件后下载；也可用手机浏览器打开上面的固定链接。`downloads/source-commit.txt` 标明生成该APK的源码提交，`downloads/SHA256SUMS` 提供校验值。
+## 微信与支付宝 API
 
-下载构建产物 `app-debug.apk`，在手机上允许对应文件管理器“安装未知应用”，打开APK安装。Android 8.0及以上，兼容常见ARM和x86设备（不包含CPU专用原生库）。
+当前未接入个人账单自动同步。公开商户对账接口不能用来读取个人账户在其他商家的全部消费。详见 [接入评估](docs/payment-api-assessment.md)。
 
-这是**debug签名的自用测试版**。正式长期使用建议配置并妥善保存个人release签名。更换签名无法直接覆盖安装；卸载前务必导出备份。GitHub Actions不同运行之间的临时debug签名也可能不同。
+## 来源
 
-## 本地构建
-
-安装Android Studio，使用JDK 17，安装Android SDK Platform 35和Build Tools。打开项目，由Android Studio同步。也可在配置好 `ANDROID_HOME` 后运行：
-
-```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
-```
-
-输出路径：`app/build/outputs/apk/debug/app-debug.apk`。
-
-Windows使用 `gradlew.bat`。首次构建需要下载Gradle和Google/Maven依赖。`local.properties`、构建缓存和签名密钥不应提交。
-
-仓库的 `.github/workflows/android.yml` 在push、PR或手动触发时运行测试、Lint、构建，并上传APK和检查报告。
-
-## 计划与数据格式
-
-内置计划：`app/src/main/assets/plan.json`。设置 → 导入计划/恢复备份。**直接导入该JSON只更新计划，不清除记录**；恢复备份则整体替换计划和当前记录，导入前需确认。建议先导出。
-
-- `schemaVersion`: 当前为1。
-- `trainingDays`: ISO星期编号，周一1、周日7，不重复。
-- `exercises`: 唯一动作ID、名称、部位、建议次数、组数、步骤和注意点。
-- `routines`: 唯一模板ID、名称和动作ID列表，依次循环。
-- `meals`、`dailyTasks`: 唯一ID、标题、说明；餐食可包含时间与提示。
-- `guidance`、`nutrition`、`recovery`: 可查看的文字规则。
-
-备份包含 `format: "health-app-backup"`、`version: 1`、`plan` 和 `state`。状态包含开始日期、提醒设置、按本地日期保存的打卡/逐组训练/身体记录。导入上限2MB，检查版本、日期、动作引用和数据结构；无效文件不应覆盖当前状态。计划中动作ID应保持稳定，历史记录才能继续显示动作名。
-
-## 使用与限制
-
-- 默认开始日期为初次打开所在周的周一，可以在设置中改；改日期保留历史，只调整周数和轮换顺序。
-- 组数完成后手动“结束并保存训练”。不足全组时可确认保存部分训练，历史中保留未完成标记。
-- 组间计时根据截止时间恢复；提示音只在应用前台播放，不是后台闹钟。
-- 起身提醒工作日默认9:00～18:00、每45分钟，12:00～13:00暂停，可改工作时间和间隔。训练提醒默认18:30，可改小时。
-- 提醒使用非精确系统闹钟，省电/休眠会导致延迟；需授权通知。强行停止后重新打开应用才恢复调度。未申请精确闹钟权限、不常驻后台。
-- 数据保存在应用私有SharedPreferences，禁用系统自动备份；用户手动导出的JSON包含个人记录，请自行保管。卸载清除本地记录。
-- 曲线使用真实日期间距；只记录体重不会产生腰围数据。没有步数传感器集成、相机识别或云同步。
-
-## 验证
-
-`app/src/test/` 覆盖A/B跨周与中途开始的轮换、两年日历对照、计划引用校验、体重与日期校验、训练输入边界、文件大小限制。构建和Lint结果见实际运行报告。
-
-发布前仍需在实际使用的手机验证安装、键盘布局、锁屏通知、厂商省电策略及备份文件选择器。
-
-可选UI冒烟测试：仅在可丢弃的模拟器上运行 `ANDROID_SERIAL=emulator-5560 python3 tests/adb_smoke.py`。该脚本会清空测试设备中本App的数据，测试四个页面、动作弹窗、A/B选择、身体记录和进程重启后持久化。不要对日常使用的手机运行此脚本。
+来源提交：f5926f49dad9b147d7f6ed464d459b78c43a6869。
+只迁移 spend 源码及必要构建文件；不包含健康 App 源码、旧 APK 或个人账单。
