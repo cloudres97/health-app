@@ -23,6 +23,7 @@ final class Data {
       }
       plan = new JSONObject(custom);
       validatePlan(plan);
+      upgradePlanner();
     } catch (Exception e) {
       throw new IllegalStateException("无法读取本地计划", e);
     }
@@ -35,6 +36,59 @@ final class Data {
 
   void save() {
     prefs().edit().putString("state", state.toString()).putString("plan", plan.toString()).apply();
+  }
+
+  private void upgradePlanner() throws Exception {
+    JSONObject bundled;
+    try (java.io.InputStream in = context.getAssets().open("plan.json")) {
+      bundled = new JSONObject(new String(readLimited(in, 2_000_000), StandardCharsets.UTF_8));
+    }
+    if (!plan.has("foods")) {
+      put(plan, "foods", bundled.getJSONArray("foods"));
+      JSONArray meals = plan.getJSONArray("meals");
+      for (int i = 0; i < meals.length(); i++) {
+        JSONObject m = meals.getJSONObject(i);
+        JSONObject original = PlanCoach.find(bundled.getJSONArray("meals"), m.optString("id"));
+        if (!m.has("items")
+            && original != null
+            && m.optString("title").equals(original.optString("title")))
+          put(m, "items", original.getJSONArray("items"));
+      }
+    }
+    JSONArray catalog = bundled.getJSONArray("exercises"),
+        existing = plan.getJSONArray("exercises");
+    for (int i = 0; i < catalog.length(); i++) {
+      JSONObject e = catalog.getJSONObject(i);
+      JSONObject old = PlanCoach.find(existing, e.optString("id"));
+      if (old == null && existing.length() < 100) existing.put(e);
+      else if (old != null && !old.has("group")) put(old, "group", e.optString("group"));
+    }
+    validatePlan(plan);
+  }
+
+  int setCount(JSONObject r, JSONObject e) {
+    JSONObject p = r.optJSONObject("prescriptions");
+    if (r.optBoolean("customized") || (p != null && p.has(e.optString("id"))))
+      return PlanCoach.sets(r, e);
+    return week(LocalDate.now()) <= 1 ? 1 : e.optInt("sets", 2);
+  }
+
+  double referenceKg() {
+    double manual = obj(state, "profile").optDouble("weight", 0);
+    if (manual > 0) return manual;
+    JSONObject body = obj(state, "body");
+    List<String> dates = new ArrayList<>();
+    Iterator<String> it = body.keys();
+    while (it.hasNext()) {
+      String d = it.next();
+      if (d.compareTo(today()) <= 0) dates.add(d);
+    }
+    dates.sort(Collections.reverseOrder());
+    for (String d : dates) {
+      double kg = body.optJSONObject(d).optDouble("kg", 0);
+      if (kg > 0) return kg;
+    }
+    return 0;
   }
 
   static void put(JSONObject o, String k, Object v) {
@@ -202,19 +256,27 @@ final class Data {
   void importText(String text) throws Exception {
     if (text.length() > 2_000_000) throw new Exception("文件超过2MB");
     JSONObject root = new JSONObject(text);
-    if (root.has("format")) {
-      if (!root.optString("format").equals("health-app-backup") || root.optInt("version") != 1)
-        throw new Exception("不支持的备份格式");
-      JSONObject p = root.getJSONObject("plan"), s = root.getJSONObject("state");
-      validatePlan(p);
-      validateState(s, p);
-      plan = p;
-      state = s;
-    } else {
-      validatePlan(root);
-      plan = root;
+    JSONObject oldPlan = plan, oldState = state;
+    try {
+      if (root.has("format")) {
+        if (!root.optString("format").equals("health-app-backup") || root.optInt("version") != 1)
+          throw new Exception("不支持的备份格式");
+        JSONObject p = root.getJSONObject("plan"), s = root.getJSONObject("state");
+        validatePlan(p);
+        validateState(s, p);
+        plan = p;
+        state = s;
+      } else {
+        validatePlan(root);
+        plan = root;
+      }
+      upgradePlanner();
+      save();
+    } catch (Exception e) {
+      plan = oldPlan;
+      state = oldState;
+      throw e;
     }
-    save();
   }
 
   static void validatePlan(JSONObject p) throws Exception {
@@ -269,6 +331,7 @@ final class Data {
         t.getString("description");
       }
     }
+    PlanCoach.validateExtensions(p);
   }
 
   static void validId(JSONObject o, Set<String> ids) throws Exception {
@@ -278,6 +341,17 @@ final class Data {
 
   static void validateState(JSONObject s, JSONObject p) throws Exception {
     LocalDate.parse(s.getString("start"));
+    JSONObject profile = s.optJSONObject("profile");
+    if (profile != null)
+      for (String k : new String[] {"weight", "carbTarget", "energy", "minutes"})
+        if (profile.has(k)) {
+          double n = profile.getDouble(k);
+          double max =
+              k.equals("energy")
+                  ? 10000
+                  : k.equals("carbTarget") ? 1000 : k.equals("minutes") ? 180 : 350;
+          if (!Double.isFinite(n) || n < 0 || n > max) throw new Exception("计划参考设置数值不正确");
+        }
     JSONObject body = s.optJSONObject("body");
     if (body != null) {
       Iterator<String> it = body.keys();

@@ -21,10 +21,10 @@ import java.util.*;
 import org.json.*;
 
 public class MainActivity extends Activity {
-  static final int BG = 0xFFF5F6F1,
+  static final int BG = 0xFFF6F8F7,
       WHITE = 0xFFFFFFFF,
       INK = 0xFF20372E,
-      MUTED = 0xFF6E7E75,
+      MUTED = 0xFF607166,
       GREEN = 0xFF237B5C,
       PALE = 0xFFE7F0E6,
       LINE = 0xFFE0E6DC;
@@ -129,10 +129,10 @@ public class MainActivity extends Activity {
 
   LinearLayout card(LinearLayout p) {
     LinearLayout l = column();
-    l.setPadding(dp(18), dp(18), dp(18), dp(18));
-    l.setBackground(shape(WHITE, 20));
+    l.setPadding(dp(14), dp(12), dp(14), dp(12));
+    l.setBackground(shape(WHITE, 12));
     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-    lp.bottomMargin = dp(12);
+    lp.bottomMargin = dp(8);
     p.addView(l, lp);
     return l;
   }
@@ -186,7 +186,7 @@ public class MainActivity extends Activity {
     setContentView(root);
     LinearLayout header = row();
     header.setPadding(dp(20), dp(14), dp(16), dp(10));
-    TextView brand = bold("日日有练", 22, INK);
+    TextView brand = bold("日日有练", 19, INK);
     header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
     Button settings = button("设置", false, () -> settings());
     header.addView(settings, new LinearLayout.LayoutParams(dp(66), dp(40)));
@@ -230,86 +230,67 @@ public class MainActivity extends Activity {
 
   void today() {
     LocalDate now = LocalDate.now();
-    int week = data.week(now);
     JSONObject routine = data.routineFor(now);
-    label(
-        content,
-        dateLabel(now),
-        week <= 0
-            ? "计划尚未开始"
-            : week <= 8 ? "第 " + week + " / 8 周 · 稳定练，慢慢变强" : "已完成8周周期 · 继续记录，评估下一阶段计划");
-    LinearLayout hero = card(content);
-    hero.setBackground(shape(GREEN, 22));
-    hero.addView(text("TODAY’S FOCUS", 12, 0xFFCEE5D8));
-    gap(hero, 10);
-    hero.addView(
-        bold(routine == null ? "今天，恢复也算进步" : routine.optString("name") + " · 30分钟", 26, WHITE));
-    gap(hero, 8);
-    hero.addView(
-        text(routine == null ? "吃好、走一走，让身体为下一次训练做好准备。" : "热身5分钟 → 4个动作 → 记录与放松", 14, 0xFFE2F0E8));
-    gap(hero, 16);
-    Button go =
-        button(
-            routine == null ? "查看训练计划" : "开始今天的训练",
-            false,
-            () -> {
-              if (routine != null) selected = routine.optString("id");
-              tab = 1;
-              render();
-            });
-    hero.addView(go, new LinearLayout.LayoutParams(-1, -2));
+    label(content, dateLabel(now), "第" + Math.max(1, data.week(now)) + "周");
+    LinearLayout focus = card(content);
+    focus.addView(bold(routine == null ? "恢复日" : routine.optString("name"), 24, INK));
+    paragraph(
+        focus,
+        routine == null
+            ? "正常饮食，饭后走一走。"
+            : routine.optJSONArray("exerciseIds").length()
+                + "个动作 · 常规"
+                + PlanCoach.totalSets(data.plan, routine)
+                + "组");
+    action(
+        focus,
+        routine == null ? "查看训练" : "开始训练",
+        true,
+        () -> {
+          if (routine != null) selected = routine.optString("id");
+          tab = 1;
+          render();
+        });
     LinearLayout overview = card(content);
-    progressLabel = bold("", 18, INK);
+    progressLabel = bold("", 16, INK);
     overview.addView(progressLabel);
-    gap(overview, 4);
-    overview.addView(text("完成一点，也是在向前", 13, MUTED));
     updateProgress();
-    LinearLayout weekRow = row();
-    for (int i = 0; i < 7; i++) {
-      LocalDate day = Schedule.monday(now).plusDays(i);
-      LinearLayout cell = column();
-      cell.setGravity(Gravity.CENTER);
-      cell.addView(text(new String[] {"一", "二", "三", "四", "五", "六", "日"}[i], 12, MUTED));
-      TextView number =
-          bold(
-              data.trained(day.toString()) ? "✓" : String.valueOf(day.getDayOfMonth()),
-              16,
-              day.equals(now) ? WHITE : INK);
-      number.setGravity(Gravity.CENTER);
-      number.setBackground(
-          shape(day.equals(now) ? GREEN : data.trained(day.toString()) ? PALE : BG, 12));
-      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(32), dp(36));
-      lp.topMargin = dp(6);
-      cell.addView(number, lp);
-      weekRow.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
-    }
-    gap(overview, 14);
-    overview.addView(weekRow);
-    label(content, "今日清单", "饮食按餐打卡，不必逐项称量");
-    if (routine != null) {
-      LinearLayout c = card(content);
-      c.addView(bold(data.trained(data.today()) ? "✓ 今天的训练已完成" : "○ 完成今天的力量训练", 16, INK));
-      gap(c, 4);
-      paragraph(c, "训练页完成各组后，点击“结束并保存训练”。");
-    }
+    PlanCoach.Macro macro = PlanCoach.day(data.plan);
+    paragraph(
+        overview,
+        String.format(Locale.CHINA, "全天计划 · 蛋白质 %.0fg / 碳水 %.0fg", macro.protein, macro.carbs));
+    LinearLayout checklist = card(content);
+    if (routine != null)
+      paragraph(checklist, data.trained(data.today()) ? "✓ 今天训练已保存" : "训练完成后，在训练页结束并保存。");
     for (String category : new String[] {"meals", "dailyTasks"}) {
-      JSONArray a = data.plan.optJSONArray(category);
-      for (int i = 0; i < a.length(); i++) {
-        JSONObject t = a.optJSONObject(i);
-        checkCard(
-            content,
-            category + "_" + t.optString("id"),
-            t.optString("title"),
-            t.optString("description"));
+      JSONArray arr = data.plan.optJSONArray(category);
+      for (int i = 0; i < arr.length(); i++) {
+        JSONObject t = arr.optJSONObject(i);
+        String id = category + "_" + t.optString("id");
+        CheckBox box = new CheckBox(this);
+        box.setText(
+            category.equals("meals")
+                ? t.optString("time", t.optString("title"))
+                : t.optString("title"));
+        box.setTextSize(15);
+        box.setTextColor(INK);
+        box.setMinHeight(dp(48));
+        box.setChecked(data.checked(id));
+        box.setButtonTintList(android.content.res.ColorStateList.valueOf(GREEN));
+        box.setOnCheckedChangeListener(
+            (v, b) -> {
+              data.check(id, b);
+              updateProgress();
+            });
+        checklist.addView(box);
       }
     }
-    if (now.getDayOfWeek().getValue() == 1
-        || now.getDayOfWeek().getValue() == 3
-        || now.getDayOfWeek().getValue() == 6) {
-      LinearLayout c = card(content);
-      paragraph(c, "晨起如厕后、早餐前称重，看周平均；每两周在肚脐水平测腰围。");
-      action(c, "记录体重 / 腰围", false, () -> bodyDialog());
-    }
+    LinearLayout actions = row();
+    actions.addView(
+        button("体重 / 腰围", false, () -> bodyDialog()), new LinearLayout.LayoutParams(0, -2, 1));
+    actions.addView(
+        button("参考设置", false, () -> profileDialog()), new LinearLayout.LayoutParams(0, -2, 1));
+    content.addView(actions);
   }
 
   void updateProgress() {
@@ -348,15 +329,20 @@ public class MainActivity extends Activity {
   }
 
   void training() {
-    StringBuilder days = new StringBuilder();
-    for (int day : data.days()) {
-      if (days.length() > 0) days.append(" / ");
-      days.append("周").append(new String[] {"一", "二", "三", "四", "五", "六", "日"}[day - 1]);
-    }
-    label(content, "把每一次练好", days + " · 模板依次轮换");
-    LinearLayout selectors = row();
+    label(content, "训练", "动作与组数按你的计划执行");
+    LinearLayout edit = row();
+    edit.addView(
+        button("编排训练", false, () -> new PlannerEditor(this, true)),
+        new LinearLayout.LayoutParams(0, -2, 1));
+    edit.addView(
+        button("参考设置", false, () -> profileDialog()), new LinearLayout.LayoutParams(0, -2, 1));
+    content.addView(edit);
+    gap(content, 12);
     JSONArray routines = data.plan.optJSONArray("routines");
     if (data.routine(selected) == null) selected = routines.optJSONObject(0).optString("id");
+    HorizontalScrollView hs = new HorizontalScrollView(this);
+    hs.setHorizontalScrollBarEnabled(false);
+    LinearLayout selectors = row();
     for (int i = 0; i < routines.length(); i++) {
       JSONObject r = routines.optJSONObject(i);
       String id = r.optString("id");
@@ -368,27 +354,39 @@ public class MainActivity extends Activity {
                 selected = id;
                 render();
               });
-      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-      lp.setMargins(dp(3), 0, dp(3), dp(12));
+      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(44));
+      lp.setMargins(0, 0, dp(8), dp(8));
       selectors.addView(b, lp);
     }
-    content.addView(selectors);
-    LinearLayout guide = card(content);
-    guide.addView(bold("先热身，再开始", 17, INK));
-    gap(guide, 6);
-    paragraph(guide, "快走或单车2～3分钟，活动肩和髋；第一个动作先做一组轻重量。第1周每动作1组，第2周起2组。动作要点可点开查看。");
-    action(guide, "完整训练与加重规则", false, () -> info("训练规则", data.plan.optString("guidance")));
+    hs.addView(selectors);
+    content.addView(hs);
+    JSONObject routine = data.routine(selected);
+    JSONObject pro = Data.obj(data.state, "profile");
+    List<PlanCoach.Tip> advice =
+        PlanCoach.training(
+            data.plan, routine, pro.optBoolean("beginner", true), pro.optInt("minutes", 30));
+    LinearLayout summary = card(content);
+    paragraph(
+        summary,
+        PlanCoach.totalSets(data.plan, routine)
+            + "组 · 常规约"
+            + PlanCoach.minutes(data.plan, routine)
+            + "分钟（粗估）");
+    advicePreview(summary, advice, () -> showAdvice("训练建议", advice));
+    action(
+        summary,
+        "热身与动作规则",
+        false,
+        () -> info("训练规则", data.plan.optString("guidance") + "\n\n自行设置的组数和余力优先执行，不会再自动减成首周1组。"));
     LinearLayout timer = card(content);
-    timerLabel = bold("组间休息 · 还没有计时", 18, INK);
+    timerLabel = bold("组间休息", 16, INK);
     timer.addView(timerLabel);
-    gap(timer, 10);
+    gap(timer, 8);
     LinearLayout options = row();
-    for (int secs : new int[] {60, 90}) {
-      Button b = button(secs + "秒", false, () -> beginRest(secs));
-      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-      lp.setMargins(0, 0, dp(6), 0);
-      options.addView(b, lp);
-    }
+    for (int secs : new int[] {60, 90})
+      options.addView(
+          button(secs + "秒", false, () -> beginRest(secs)),
+          new LinearLayout.LayoutParams(0, -2, 1));
     options.addView(
         button(
             "停止",
@@ -398,35 +396,34 @@ public class MainActivity extends Activity {
               Data.put(data.state, "restEnd", 0);
               data.save();
               if (timerTick != null) handler.removeCallbacks(timerTick);
-              timerLabel.setText("组间休息 · 已停止");
+              timerLabel.setText("组间休息");
             }),
         new LinearLayout.LayoutParams(0, -2, 1));
     timer.addView(options);
-    paragraph(timer, "计时状态可恢复；提示音只在应用前台播放。");
-    JSONObject routine = data.routine(selected);
     JSONArray ids = routine.optJSONArray("exerciseIds");
     for (int i = 0; i < ids.length(); i++) {
       JSONObject ex = data.exercise(ids.optString(i));
       LinearLayout c = card(content);
       LinearLayout head = row();
-      TextView name = bold((i + 1) + "  " + ex.optString("name"), 18, INK);
-      head.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+      head.addView(bold(ex.optString("name"), 17, INK), new LinearLayout.LayoutParams(0, -2, 1));
       head.addView(
           button("动作", false, () -> exerciseDialog(ex)),
           new LinearLayout.LayoutParams(dp(62), dp(40)));
       c.addView(head);
-      paragraph(c, ex.optString("area") + "  ·  每组 " + ex.optString("reps") + " 次");
-      TextView prev = text(data.previous(ex.optString("id")), 12, MUTED);
-      c.addView(prev);
-      gap(c, 10);
-      int sets = data.week(LocalDate.now()) <= 1 ? 1 : ex.optInt("sets", 2);
-      String rid = selected, eid = ex.optString("id");
-      for (int s = 0; s < sets; s++) setRow(c, rid, eid, s);
+      int sets = data.setCount(routine, ex);
+      paragraph(
+          c,
+          sets
+              + "组 × "
+              + PlanCoach.reps(routine, ex)
+              + "次 · 余力"
+              + PlanCoach.rir(routine, ex)
+              + "次");
+      c.addView(text(data.previous(ex.optString("id")), 12, MUTED));
+      gap(c, 8);
+      for (int n = 0; n < sets; n++) setRow(c, selected, ex.optString("id"), n);
     }
-    LinearLayout finish = card(content);
-    boolean completed = data.workout(data.today(), selected).optBoolean("finished");
-    paragraph(finish, completed ? "今天这套训练已经保存。继续修改各组会更新记录。" : "完成各组后再结束。中途退出也会保留已填写内容。");
-    action(finish, completed ? "查看今日训练记录" : "结束并保存训练", true, () -> finishWorkout());
+    action(content, "结束并保存训练", true, () -> finishWorkout());
   }
 
   void setRow(LinearLayout parent, String rid, String eid, int index) {
@@ -513,7 +510,7 @@ public class MainActivity extends Activity {
     int complete = 0, expected = 0;
     for (int i = 0; i < ids.length(); i++) {
       JSONObject e = data.exercise(ids.optString(i));
-      int count = data.week(LocalDate.now()) <= 1 ? 1 : e.optInt("sets", 2);
+      int count = data.setCount(r, e);
       for (int j = 0; j < count; j++) {
         expected++;
         if (data.set(selected, e.optString("id"), j).optBoolean("done")) complete++;
@@ -589,46 +586,230 @@ public class MainActivity extends Activity {
   }
 
   void food() {
-    label(content, "食堂也能吃得明白", "按份量搭配，少一些计算负担");
-    LinearLayout goal = card(content);
-    goal.setBackground(shape(PALE, 20));
-    goal.addView(bold("蛋白质 110～130g / 天", 22, GREEN));
-    gap(goal, 6);
-    paragraph(goal, "约2000～2200千卡仅作试行参考。先稳定三餐，根据2～3周体重、腰围与力量变化调整；不是吃得越多越好。");
+    label(content, "饮食", "份量估算，按餐执行");
+    LinearLayout actions = row();
+    actions.addView(
+        button("编排饮食", false, () -> new PlannerEditor(this, false)),
+        new LinearLayout.LayoutParams(0, -2, 1));
+    actions.addView(
+        button("参考设置", false, () -> profileDialog()), new LinearLayout.LayoutParams(0, -2, 1));
+    content.addView(actions);
+    gap(content, 12);
+    PlanCoach.Macro total = PlanCoach.day(data.plan);
+    LinearLayout summary = card(content);
+    summary.addView(
+        bold(
+            String.format(Locale.CHINA, "蛋白质 %.0fg   碳水 %.0fg", total.protein, total.carbs),
+            20,
+            INK));
+    paragraph(
+        summary, String.format(Locale.CHINA, "全天计划约 %.0f 千卡 · 含脂肪 %.0fg", total.kcal(), total.fat));
+    double kg = data.referenceKg();
+    JSONObject profile = Data.obj(data.state, "profile"), r = data.routineFor(LocalDate.now());
+    int sets = r == null ? 0 : PlanCoach.totalSets(data.plan, r);
+    double carb =
+        profile.optDouble("carbTarget", 0) > 0
+            ? profile.optDouble("carbTarget")
+            : PlanCoach.carbTarget(kg, sets);
+    if (kg > 0)
+      paragraph(
+          summary,
+          String.format(
+              Locale.CHINA, "参考 %.1fkg · 蛋白质约%.0f～%.0fg · 碳水试行%.0fg", kg, kg * 1.4, kg * 2, carb));
+    else paragraph(summary, "设置参考体重后，显示按体重计算的建议。");
+    List<PlanCoach.Tip> tips =
+        PlanCoach.nutrition(
+            data.plan,
+            kg,
+            sets,
+            profile.optDouble("carbTarget", 0),
+            profile.optDouble("energy", 0));
+    advicePreview(summary, tips, () -> showAdvice("饮食建议", tips));
     JSONArray meals = data.plan.optJSONArray("meals");
+    PlanCoach.Macro checked = new PlanCoach.Macro();
     for (int i = 0; i < meals.length(); i++) {
       JSONObject m = meals.optJSONObject(i);
-      LinearLayout c = card(content);
-      c.addView(text(m.optString("time"), 12, GREEN));
-      gap(c, 4);
-      c.addView(bold(m.optString("title"), 18, INK));
-      gap(c, 8);
-      paragraph(c, m.optString("description"));
-      paragraph(c, "小提示：" + m.optString("tip"));
-      CheckBox box = new CheckBox(this);
-      box.setText("这一餐已完成");
-      box.setTextColor(GREEN);
+      PlanCoach.Macro macro = PlanCoach.meal(data.plan, m);
       String id = "meals_" + m.optString("id");
+      LinearLayout c = card(content);
+      CheckBox box = new CheckBox(this);
+      box.setText(m.optString("time", m.optString("title")));
+      box.setTextSize(17);
+      box.setTextColor(INK);
       box.setChecked(data.checked(id));
-      box.setOnCheckedChangeListener((v, b) -> data.check(id, b));
+      box.setButtonTintList(android.content.res.ColorStateList.valueOf(GREEN));
       c.addView(box);
+      StringBuilder items = new StringBuilder();
+      JSONArray list = m.optJSONArray("items");
+      if (list != null)
+        for (int j = 0; j < list.length(); j++) {
+          JSONObject item = list.optJSONObject(j),
+              f = PlanCoach.find(data.plan.optJSONArray("foods"), item.optString("foodId"));
+          if (f != null) {
+            if (items.length() > 0) items.append(" · ");
+            items
+                .append(f.optString("name"))
+                .append("×")
+                .append(PlannerEditor.format(item.optDouble("quantity")));
+          }
+        }
+      TextView brief = text(items.length() == 0 ? "尚未选择食物" : items.toString(), 14, MUTED);
+      brief.setMaxLines(2);
+      brief.setEllipsize(TextUtils.TruncateAt.END);
+      c.addView(brief);
+      gap(c, 6);
+      paragraph(
+          c,
+          String.format(
+              Locale.CHINA,
+              "蛋白质%.0fg / 碳水%.0fg / 约%.0f千卡",
+              macro.protein,
+              macro.carbs,
+              macro.kcal()));
+      brief.setOnClickListener(v -> mealDetails(m));
+      box.setOnCheckedChangeListener(
+          (v, b) -> {
+            data.check(id, b);
+          });
+      if (data.checked(id)) {
+        checked.protein += macro.protein;
+        checked.carbs += macro.carbs;
+      }
+      TextView details = text("份量详情 ›", 13, GREEN);
+      details.setPadding(0, dp(8), 0, dp(8));
+      details.setOnClickListener(v -> mealDetails(m));
+      c.addView(details);
     }
-    LinearLayout portions = card(content);
-    portions.addView(bold("用手掌估份量", 18, INK));
-    gap(portions, 8);
-    portions.addView(new PortionView(this), new LinearLayout.LayoutParams(-1, dp(150)));
-    paragraph(portions, "肉 / 鱼：手掌不含手指，约1～1.5掌面积、接近手掌厚度。蔬菜：约两拳。手大小和食物厚度不同，这只是估算。");
-    paragraph(portions, "炒肉丝只估肉；小鸡腿可能不够，骨头和皮不算。肉少时加豆腐。豆腐同体积蛋白质通常少于肉，不直接一比一替换。");
-    LinearLayout picks = card(content);
-    picks.addView(bold("酸奶与水果怎么选", 18, INK));
-    gap(picks, 8);
-    paragraph(picks, "酸奶：优先原味、无添加糖、低脂。高蛋白款可按每100g蛋白质≥6g、脂肪0～2g筛选。0蔗糖不代表无其他添加糖，乳酸菌饮料也不等于酸奶。");
-    paragraph(picks, "水果：苹果、橙子、猕猴桃、香蕉轮换。每天约两份小到中等水果，按大小调整，约200～350g。直接吃水果，少喝果汁；无需专门买昂贵水果。");
-    action(picks, "饮食调整规则", false, () -> info("饮食参考", data.plan.optString("nutrition")));
+    action(
+        content,
+        "份量与食物选择说明",
+        false,
+        () ->
+            info(
+                "份量与数据说明",
+                "米饭按普通平口碗；肉鱼按不含手指的手掌估计；蔬菜约两拳。\n\n"
+                    + "内置食物营养是常见份量的粗估，食堂用油和品牌有差异。可以按包装标签新增食物；热量由蛋白质、碳水和脂肪按4/4/9估算，不包括额外酒精等来源。\n\n"
+                    + "这里汇总的是计划，按餐打卡也不代表实测吃下的数量。\n\n"
+                    + data.plan.optString("nutrition")));
+  }
+
+  void mealDetails(JSONObject m) {
+    StringBuilder s = new StringBuilder();
+    JSONArray list = m.optJSONArray("items");
+    if (list != null)
+      for (int i = 0; i < list.length(); i++) {
+        JSONObject item = list.optJSONObject(i),
+            f = PlanCoach.find(data.plan.optJSONArray("foods"), item.optString("foodId"));
+        if (f != null)
+          s.append(f.optString("name"))
+              .append(" × ")
+              .append(PlannerEditor.format(item.optDouble("quantity")))
+              .append("份\n1份 = ")
+              .append(f.optString("unit"))
+              .append("\n\n");
+      }
+    s.append(m.optString("description")).append("\n\n").append(m.optString("tip"));
+    info(m.optString("time", m.optString("title")), s.toString());
+  }
+
+  void advicePreview(LinearLayout p, List<PlanCoach.Tip> tips, Runnable open) {
+    PlanCoach.Tip first = tips.get(0);
+    for (PlanCoach.Tip t : tips)
+      if (t.caution) {
+        first = t;
+        break;
+      }
+    TextView hint =
+        text(
+            (first.caution ? "注意 · " : "建议 · ") + first.text,
+            13,
+            first.caution ? 0xFF995200 : MUTED);
+    hint.setMaxLines(2);
+    hint.setEllipsize(TextUtils.TruncateAt.END);
+    hint.setOnClickListener(v -> open.run());
+    p.addView(hint);
+    TextView more = text("查看建议 ›", 13, GREEN);
+    more.setPadding(0, dp(8), 0, dp(4));
+    more.setOnClickListener(v -> open.run());
+    p.addView(more);
+  }
+
+  void showAdvice(String title, List<PlanCoach.Tip> tips) {
+    StringBuilder s = new StringBuilder();
+    for (PlanCoach.Tip t : tips)
+      s.append(t.caution ? "注意 · " : "建议 · ").append(t.text).append("\n\n");
+    s.append(
+        "这些是计划参考，不是疾病判断。训练组数与余力用于提示训练负担，不代表测得的生理强度。碳水默认按参考体重×3g试行；当天计划达到12组时按×4g试行，可自行修改。这是应用的可调策略，不是所有人都必须达到的标准。\n\n"
+            + "蛋白质参考ISSN运动人群1.4～2.0g/kg。肾病、妊娠或需要治疗性饮食等情况，需个体化建议。\n\n"
+            + "依据与范围：ISSN 2017 Protein and Exercise；ACSM 2026 Resistance Training。完整阈值和来源见仓库"
+            + " docs/planning-rules.md。");
+    info(title, s.toString());
+  }
+
+  void profileDialog() {
+    LinearLayout p = column();
+    p.setPadding(dp(20), dp(8), dp(20), dp(8));
+    JSONObject pro = Data.obj(data.state, "profile");
+    paragraph(p, "体重只用于本机计划参考，不会上传。留空则使用最近体重记录。碳水和热量目标留空代表自动参考/不判断热量。");
+    p.addView(text("参考体重 kg（可留空）", 13, MUTED));
+    EditText kg =
+        number(
+            "体重", pro.has("weight") && pro.optDouble("weight") > 0 ? pro.optString("weight") : "");
+    p.addView(kg);
+    p.addView(text("每次可用分钟", 13, MUTED));
+    EditText mins = number("分钟", String.valueOf(pro.optInt("minutes", 30)));
+    p.addView(mins);
+    Switch beginner = new Switch(this);
+    beginner.setText("我是力量训练新手");
+    beginner.setChecked(pro.optBoolean("beginner", true));
+    p.addView(beginner);
+    p.addView(text("自定碳水目标 g/天（可留空）", 13, MUTED));
+    EditText carbs =
+        number("自动参考", pro.optDouble("carbTarget", 0) > 0 ? pro.optString("carbTarget") : "");
+    p.addView(carbs);
+    p.addView(text("自行设定热量目标 千卡/天（可留空）", 13, MUTED));
+    EditText energy =
+        number("不判断总热量", pro.optDouble("energy", 0) > 0 ? pro.optString("energy") : "");
+    p.addView(energy);
+    ScrollView scroll = new ScrollView(this);
+    scroll.addView(p);
+    AlertDialog d =
+        new AlertDialog.Builder(this)
+            .setTitle("计划参考设置")
+            .setView(scroll)
+            .setPositiveButton("保存", null)
+            .setNegativeButton("取消", null)
+            .create();
+    d.setOnShowListener(
+        v ->
+            d.getButton(-1)
+                .setOnClickListener(
+                    b -> {
+                      try {
+                        JSONObject next = new JSONObject();
+                        Double weight = parseOptional(kg, 20, 350),
+                            c = parseOptional(carbs, 1, 1000),
+                            k = parseOptional(energy, 500, 10000);
+                        double m = PlannerEditor.validNumber(mins, 10, 180);
+                        if (m != Math.rint(m)) throw new Exception("分钟填写整数");
+                        Data.put(next, "weight", weight == null ? 0 : weight);
+                        Data.put(next, "carbTarget", c == null ? 0 : c);
+                        Data.put(next, "energy", k == null ? 0 : k);
+                        Data.put(next, "minutes", (int) m);
+                        Data.put(next, "beginner", beginner.isChecked());
+                        Data.put(data.state, "profile", next);
+                        data.save();
+                        d.dismiss();
+                        render();
+                      } catch (Exception ex) {
+                        toast(ex.getMessage());
+                      }
+                    }));
+    d.show();
   }
 
   void records() {
-    label(content, "变化，看长期", "只展示你的真实记录，不预填示例数据");
+    label(content, "记录", "体重、腰围与训练历史");
     JSONObject body = Data.obj(data.state, "body");
     ArrayList<String> dates = keys(body);
     ArrayList<Float> weights = new ArrayList<>();
@@ -924,7 +1105,7 @@ public class MainActivity extends Activity {
         false,
         () ->
             info(
-                "日日有练 1.0.0",
+                "日日有练 1.1.0",
                 "离线个人训练助手\n\n"
                     + "包含训练指导、逐组记录、组间计时、饮食参照、每日打卡、体重腰围趋势和可选提醒。\n\n"
                     + "本版本动作指导为文字与份量示意，不包含真人动作视频。首次使用器械请现场确认动作。\n\n"
