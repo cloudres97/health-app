@@ -68,3 +68,7 @@ Windows使用 `gradlew.bat`。首次构建需要下载Gradle和Google/Maven依�
 发布前仍需在实际使用的手机验证安装、键盘布局、锁屏通知、厂商省电策略及备份文件选择器。
 
 可选UI冒烟测试：仅在可丢弃的模拟器上运行 `ANDROID_SERIAL=emulator-5560 python3 tests/adb_smoke.py`。该脚本会清空测试设备中本App的数据，测试四个页面、动作弹窗、A/B选择、身体记录和进程重启后持久化。不要对日常使用的手机运行此脚本。
+
+## 记账应用
+
+日账已迁移到独立仓库 [cloudres97/spend-app](https://github.com/cloudres97/spend-app)，后续源码和 APK 请在新仓库获取。
