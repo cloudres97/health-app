@@ -16,6 +16,10 @@
 
 ## 安装 APK
 
+**[直接下载最新版 APK](https://github.com/cloudres97/health-app/raw/refs/heads/main/downloads/health-app.apk)**
+
+主分支构建成功后自动更新 `downloads/health-app.apk`，无需进入Actions或解压ZIP。手机GitHub应用可进入 `downloads` 文件夹，打开APK文件后下载；也可用手机浏览器打开上面的固定链接。`downloads/source-commit.txt` 标明生成该APK的源码提交，`downloads/SHA256SUMS` 提供校验值。
+
 下载构建产物 `app-debug.apk`，在手机上允许对应文件管理器“安装未知应用”，打开APK安装。Android 8.0及以上，兼容常见ARM和x86设备（不包含CPU专用原生库）。
 
 这是**debug签名的自用测试版**。正式长期使用建议配置并妥善保存个人release签名。更换签名无法直接覆盖安装；卸载前务必导出备份。GitHub Actions不同运行之间的临时debug签名也可能不同。
